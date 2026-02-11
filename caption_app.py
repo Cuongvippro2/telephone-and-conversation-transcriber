@@ -55,7 +55,6 @@ class TranscriptionState:
         self._restarting = False
         self._max_restarts = 5
         self._current_proc = None
-        self._restarting = False
 
     @property
     def mode(self):
@@ -128,7 +127,7 @@ class TranscriptionState:
     def reset_restart_count(self):
         with self._lock:
             self._restart_count = 0
-        self._restarting = False
+            self._restarting = False
 
     def set_proc(self, proc):
         with self._lock:
@@ -150,7 +149,7 @@ class TranscriptionState:
                 except:
                     pass
                 self._current_proc = None
-        self._restarting = False
+            self._restarting = False
 
 state = TranscriptionState()
 
@@ -234,7 +233,6 @@ def faster_whisper_thread():
     try:
         from faster_whisper import WhisperModel
         import numpy as np
-        from scipy import signal
 
         # Load model
         print('Loading Whisper model (small.en)...', flush=True)
@@ -624,6 +622,9 @@ def deepgram_thread():
                         if chunk:
                             ws.send(chunk, opcode=2)
                         else:
+                            if arecord.poll() is not None:
+                                print('Deepgram: arecord process died', flush=True)
+                                break
                             time.sleep(0.01)
                     except Exception as e:
                         print(f"Send error: {e}", flush=True)
@@ -756,6 +757,9 @@ def assemblyai_thread():
                         if chunk:
                             ws.send(json.dumps({'audio_data': base64.b64encode(chunk).decode()}))
                         else:
+                            if arecord.poll() is not None:
+                                print('AssemblyAI: arecord process died', flush=True)
+                                break
                             time.sleep(0.01)
                     except Exception as e:
                         print(f"AssemblyAI send error: {e}", flush=True)
@@ -928,6 +932,9 @@ def _chunked_api_thread(provider_name, transcribe_fn):
         while not state.is_stopped():
             data = arecord.stdout.read(3200)
             if not data:
+                if arecord.poll() is not None:
+                    print(f'{provider_name}: arecord process died', flush=True)
+                    break
                 time.sleep(0.01)
                 continue
 
@@ -1389,7 +1396,7 @@ class CaptionView(QWidget):
         if status == 'switching':
             self.status_label.setText('⏳')
             self.status_label.setStyleSheet('font-size: 30px; background: transparent;')
-        elif status in ('vosk', 'deepgram'):
+        elif status in ('vosk', 'deepgram', 'assemblyai', 'azure', 'google', 'openai', 'groq', 'interfaze', 'whisper', 'faster-whisper'):
             self.status_label.setText('🎤')
             self.status_label.setStyleSheet('font-size: 30px; background: transparent;')
         elif status == 'no-key':
@@ -1644,7 +1651,7 @@ def main():
     except:
         pass
 
-    # Start with offline mode
+    # Start transcription
     start_transcription('online')
 
     # Watchdog thread

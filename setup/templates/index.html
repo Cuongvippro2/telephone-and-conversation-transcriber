@@ -509,6 +509,7 @@
             const payload = {
                 room_device: document.getElementById('room-device').value,
                 phone_device: document.getElementById('phone-device').value,
+                speech_mode: speechMode,
                 stt_provider: provider,
                 offline_model: offlineModel,
                 deepgram_key: provider === 'deepgram' ? apiKey : '',
@@ -592,25 +593,25 @@
                 document.getElementById('azure-region').value = config.azure_region;
             }
 
-            // Restore provider selection
-            if (config.stt_provider && config.stt_provider !== 'vosk') {
-                const sel = document.getElementById('stt-provider');
-                if (sel) {
-                    sel.value = config.stt_provider;
-                    pickProvider(config.stt_provider);
-                }
-            }
-
             // Restore offline model selection
             if (config.offline_model) {
                 const offlineSel = document.getElementById('offline-model');
                 if (offlineSel) offlineSel.value = config.offline_model;
             }
 
-            // Restore speech mode (offline providers stored as model name)
+            // Restore speech mode and provider selection
             const offlineModels = ['faster-whisper', 'vosk', 'whisper-cpp'];
-            if (offlineModels.includes(config.stt_provider)) {
+            if (config.speech_mode === 'offline' || offlineModels.includes(config.stt_provider)) {
                 pickSpeechMode('offline');
+            } else {
+                pickSpeechMode('online');
+                if (config.stt_provider) {
+                    const sel = document.getElementById('stt-provider');
+                    if (sel) {
+                        sel.value = config.stt_provider;
+                        pickProvider(config.stt_provider);
+                    }
+                }
             }
 
             if (config.gateway_ip) {

@@ -4,6 +4,10 @@
 # Run with: curl -sSL https://raw.githubusercontent.com/andygmassey/telephone-and-conversation-transcriber/main/install.sh | bash
 # =============================================================================
 
+# Wrap everything in main() so bash must receive the complete script before
+# executing anything — protects against truncated downloads via curl | bash.
+main() {
+
 set -e
 
 # Colours for friendly output
@@ -21,10 +25,11 @@ SYSTEMD_DIR="$HOME/.config/systemd/user"
 REPO_URL="https://github.com/andygmassey/telephone-and-conversation-transcriber.git"
 BRANCH="${GRAMPS_BRANCH:-main}"
 VOSK_MODEL_URL="https://alphacephei.com/vosk/models/vosk-model-small-en-gb-0.15.zip"
+TOTAL_STEPS=8
 
 step() {
     echo ""
-    echo -e "${BLUE}${BOLD}[$1/8]${NC} ${BOLD}$2${NC}"
+    echo -e "${BLUE}${BOLD}[$1/$TOTAL_STEPS]${NC} ${BOLD}$2${NC}"
 }
 
 ok() {
@@ -60,10 +65,12 @@ if [ ! -f /etc/os-release ]; then
     fail "Can't detect your operating system. This installer is for Raspberry Pi OS."
 fi
 
-. /etc/os-release
+# Read OS info (in a subshell to avoid polluting the namespace)
+OS_ID=$(. /etc/os-release && echo "$ID")
+OS_PRETTY_NAME=$(. /etc/os-release && echo "$PRETTY_NAME")
 
-if [[ "$ID" != "debian" && "$ID" != "raspbian" ]]; then
-    fail "This installer is designed for Raspberry Pi OS (Bookworm). You seem to be running $PRETTY_NAME."
+if [[ "$OS_ID" != "debian" && "$OS_ID" != "raspbian" ]]; then
+    fail "This installer is designed for Raspberry Pi OS (Bookworm). You seem to be running $OS_PRETTY_NAME."
 fi
 
 # Check for 64-bit
@@ -72,6 +79,10 @@ if [[ "$(uname -m)" != "aarch64" ]]; then
 fi
 
 # Check Python version
+if ! command -v python3 &>/dev/null; then
+    fail "Python 3 is not installed. This is unusual — please reinstall Raspberry Pi OS."
+fi
+
 PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
 PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
@@ -108,11 +119,9 @@ step 3 "Downloading the transcriber..."
 
 if [ -d "$INSTALL_DIR" ]; then
     warn "Already downloaded — updating to latest version"
-    cd "$INSTALL_DIR"
-    git pull --quiet || warn "Couldn't update. Using existing version."
-    cd - > /dev/null
+    git -C "$INSTALL_DIR" pull --quiet || warn "Couldn't update. Using existing version."
 else
-    git clone --quiet --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR" || fail "Couldn't download the transcriber. Check your internet connection."
+    git clone --quiet --branch "$BRANCH" -- "$REPO_URL" "$INSTALL_DIR" || fail "Couldn't download the transcriber. Check your internet connection."
 fi
 
 ok "Transcriber downloaded to $INSTALL_DIR"
@@ -122,7 +131,13 @@ ok "Transcriber downloaded to $INSTALL_DIR"
 step 4 "Setting up Python environment..."
 
 if [ -d "$VENV_DIR" ]; then
-    warn "Python environment already exists — reusing it"
+    if "$VENV_DIR/bin/python3" -c "import sys" 2>/dev/null; then
+        warn "Python environment already exists — reusing it"
+    else
+        warn "Python environment is broken — recreating it"
+        rm -rf "$VENV_DIR"
+        python3 -m venv "$VENV_DIR" --system-site-packages || fail "Couldn't create Python environment."
+    fi
 else
     python3 -m venv "$VENV_DIR" --system-site-packages || fail "Couldn't create Python environment."
 fi
@@ -133,7 +148,7 @@ ok "Python environment ready"
 
 step 5 "Installing Python packages..."
 
-"$VENV_DIR/bin/pip" install --quiet --upgrade pip 2>/dev/null
+"$VENV_DIR/bin/pip" install --quiet --upgrade pip 2>/dev/null || warn "Couldn't upgrade pip (continuing with existing version)"
 "$VENV_DIR/bin/pip" install --quiet \
     vosk \
     sounddevice \
@@ -149,12 +164,13 @@ ok "All Python packages installed"
 
 step 6 "Downloading offline speech model (~40 MB)..."
 
-if [ -d "$VOSK_DIR" ]; then
+if [ -d "$VOSK_DIR" ] && [ -f "$VOSK_DIR/conf/model.conf" ]; then
     warn "Speech model already downloaded — skipping"
 else
+    rm -rf "$VOSK_DIR"  # Clean up any partial download
     VOSK_ZIP="/tmp/vosk-model.zip"
     curl -sSL "$VOSK_MODEL_URL" -o "$VOSK_ZIP" || fail "Couldn't download the speech model."
-    unzip -q "$VOSK_ZIP" -d /tmp || fail "Couldn't unpack the speech model."
+    unzip -o -q "$VOSK_ZIP" -d /tmp || fail "Couldn't unpack the speech model."
     mv /tmp/vosk-model-small-en-gb-0.15 "$VOSK_DIR" || fail "Couldn't move the speech model into place."
     rm -f "$VOSK_ZIP"
 fi
@@ -176,9 +192,13 @@ for service_file in "$INSTALL_DIR"/systemd/caption.service \
 done
 
 # Install the setup wizard service
-cp "$INSTALL_DIR/setup/gramps-setup.service" "$SYSTEMD_DIR/"
+if [ -f "$INSTALL_DIR/setup/gramps-setup.service" ]; then
+    cp "$INSTALL_DIR/setup/gramps-setup.service" "$SYSTEMD_DIR/"
+else
+    fail "Setup wizard service file not found. The download may be incomplete — try running the installer again."
+fi
 
-systemctl --user daemon-reload
+systemctl --user daemon-reload || fail "Couldn't reload systemd. Make sure you're running this from an interactive SSH login or desktop session."
 
 ok "Services installed"
 
@@ -192,7 +212,7 @@ systemctl --user enable --now gramps-setup 2>/dev/null || warn "Couldn't auto-st
 sleep 2
 
 # Get the Pi's hostname
-HOSTNAME=$(hostname).local
+PI_HOSTNAME="$(hostname).local"
 
 ok "Setup wizard is running!"
 
@@ -205,13 +225,13 @@ echo -e "${GREEN}${BOLD}================================================${NC}"
 echo ""
 echo -e "Open this address on your phone or computer:"
 echo ""
-echo -e "  ${BOLD}${BLUE}http://${HOSTNAME}:8080${NC}"
+echo -e "  ${BOLD}${BLUE}http://${PI_HOSTNAME}:8080${NC}"
 echo ""
 echo -e "The setup page will walk you through the rest."
 echo ""
 echo -e "If that address doesn't work, try:"
 echo ""
-IP_ADDR=$(hostname -I 2>/dev/null | awk '{print $1}')
+IP_ADDR=$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+\.' | head -1)
 if [ -n "$IP_ADDR" ]; then
     echo -e "  ${BOLD}http://${IP_ADDR}:8080${NC}"
     echo ""
@@ -219,3 +239,8 @@ fi
 echo -e "${YELLOW}Tip:${NC} You can come back to this setup page any time"
 echo -e "     to change settings or check on things."
 echo ""
+
+}
+
+# Run the main function — this ensures the entire script is downloaded before execution
+main "$@"

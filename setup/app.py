@@ -25,6 +25,7 @@ def load_config():
 
 
 def save_config(data):
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
     with open(CONFIG_PATH, 'w') as f:
         json.dump(data, f, indent=4)
 
@@ -38,6 +39,7 @@ def save_credentials(deepgram_key=None, azure_key=None, azure_region=None):
         lines.append(f'AZURE_KEY = "{azure_key}"')
         lines.append(f'AZURE_REGION = "{azure_region or "uksouth"}"')
     if lines:
+        os.makedirs(os.path.dirname(CREDENTIALS_PATH), exist_ok=True)
         with open(CREDENTIALS_PATH, 'w') as f:
             f.write('\n'.join(lines) + '\n')
 
@@ -133,6 +135,7 @@ def api_save():
     config = {
         'room_device': data.get('room_device', ''),
         'phone_device': data.get('phone_device', ''),
+        'speech_mode': data.get('speech_mode', 'online'),
         'stt_provider': data.get('stt_provider', 'deepgram'),
         'offline_model': data.get('offline_model', 'faster-whisper'),
         'deepgram_key': data.get('deepgram_key', ''),
