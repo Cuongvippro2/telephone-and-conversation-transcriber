@@ -1,6 +1,8 @@
 # Telephone and Conversation Transcriber
 
-Real-time speech-to-text caption appliance for a deaf or hard-of-hearing user. Converts speech from phone calls and room conversation into live text on a touchscreen display.
+My elderly father is extremely deaf and struggles to hear people, particularly on the landline phone. So I built this — a Raspberry Pi with a 10" touchscreen that sits next to his phone and transcribes conversations in near real-time, so he can read what people are saying.
+
+It picks up both phone calls (via a USB telephone recorder tapped into the landline) and in-room conversation (via a USB conference microphone), and displays live captions in large, clear text. When nobody's talking it shows a nice flip-clock. The whole thing runs headless as a systemd service — plug it in and it just works.
 
 ## Features
 
