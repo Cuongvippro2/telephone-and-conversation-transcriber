@@ -1,0 +1,6 @@
+[Unit]
+Description=Gramps Caption Service Monitor
+
+[Service]
+Type=oneshot
+ExecStart=%h/gramps-transcriber/scripts/caption-monitor.sh
