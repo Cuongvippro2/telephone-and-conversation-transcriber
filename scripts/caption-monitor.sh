@@ -4,6 +4,7 @@
 #
 # Philosophy: only alert when the system NEEDS human attention.
 # If it hit a problem but recovered on its own, that's success, not failure.
+# When a problem is detected, ALWAYS try to fix it before alerting.
 #
 # Alert method: Uses Home Assistant notify service if HA_TOKEN is available
 # in credentials.py. Customize the send_alert function for other methods
@@ -49,36 +50,72 @@ send_alert() {
     date +%s > "$ALERT_COOLDOWN_FILE"
 }
 
-# Check 1: Is the service running?
+# Check 1: Is the service running at all?
 if ! systemctl --user is-active --quiet caption.service; then
+    # Service is completely down — restart it
+    systemctl --user restart caption.service
     send_alert \
         "Gramps Transcriber DOWN" \
-        "The caption service has stopped. Attempting restart..."
-    systemctl --user restart caption.service
+        "The caption service had stopped. Restarted automatically."
     exit 0
 fi
 
 # Check 2: Is there an active arecord process?
+# If service is running but no arecord, the app is broken — restart it
 if ! pgrep -f "arecord.*hw:" > /dev/null 2>&1; then
-    send_alert \
-        "Gramps Transcriber NO AUDIO" \
-        "No arecord process found — audio capture may have stopped."
-    exit 0
+    echo "$(date): No arecord process — restarting service"
+    systemctl --user restart caption.service
+    sleep 5
+    # Verify it came back
+    if pgrep -f "arecord.*hw:" > /dev/null 2>&1; then
+        echo "$(date): Service restarted successfully, arecord running"
+        # Don't alert — we fixed it
+        exit 0
+    else
+        send_alert \
+            "Gramps Transcriber BROKEN" \
+            "No arecord process. Restart attempted but arecord still not running. Manual investigation needed."
+        exit 0
+    fi
 fi
 
-# Check 3: Is the heartbeat file fresh? (written every few seconds by health_check)
+# Check 3: Is the heartbeat file fresh?
 if [ -f "$HEARTBEAT_FILE" ]; then
     hb_age=$(( $(date +%s) - $(stat -c %Y "$HEARTBEAT_FILE" 2>/dev/null || stat -f %m "$HEARTBEAT_FILE" 2>/dev/null) ))
     if [ "$hb_age" -gt 300 ]; then
-        # No heartbeat for 5 minutes — something is seriously wrong
-        send_alert \
-            "Gramps Transcriber FROZEN" \
-            "No heartbeat for ${hb_age} seconds. The application may be frozen or crashed."
-        exit 0
+        # No heartbeat for 5 minutes — restart the service
+        echo "$(date): Heartbeat stale (${hb_age}s) — restarting service"
+        systemctl --user restart caption.service
+        sleep 5
+        if pgrep -f "arecord.*hw:" > /dev/null 2>&1; then
+            echo "$(date): Service restarted successfully after stale heartbeat"
+            exit 0
+        else
+            send_alert \
+                "Gramps Transcriber FROZEN" \
+                "No heartbeat for ${hb_age}s. Restart attempted but still not healthy."
+            exit 0
+        fi
     fi
 
     # Check heartbeat contents for problems
     hb_content=$(cat "$HEARTBEAT_FILE")
+
+    # Check for gave_up state — the app has given up internally
+    if echo "$hb_content" | grep -q 'status=gave_up'; then
+        echo "$(date): App in gave_up state — restarting service"
+        systemctl --user restart caption.service
+        sleep 5
+        if pgrep -f "arecord.*hw:" > /dev/null 2>&1; then
+            echo "$(date): Service restarted from gave_up state"
+            exit 0
+        else
+            send_alert \
+                "Gramps Transcriber GAVE UP" \
+                "App exhausted restarts and gave up. Restart attempted but still not healthy."
+            exit 0
+        fi
+    fi
 
     if echo "$hb_content" | grep -qE 'thread=False|proc=False'; then
         send_alert \
